@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프롬프트 갤러리 📚</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    background:#f4f1ea; color:#222; min-height:100vh; padding:18px 14px 90px;
+  }
+  #wrap { max-width:960px; margin:0 auto; }
+  header { text-align:center; margin:10px 0 18px; }
+  header h1 { font-size:28px; font-weight:900; letter-spacing:-0.5px; }
+  header p { font-size:14px; color:#777; margin-top:6px; }
+  #search {
+    width:100%; margin-top:14px; padding:13px 16px; font-size:15px; font-family:inherit;
+    border:2px solid #e2ddd0; border-radius:14px; background:#fff; outline:none;
+  }
+  #search:focus { border-color:#e8590c; }
+  #cats { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 18px; justify-content:center; }
+  #cats button {
+    padding:9px 14px; border-radius:20px; border:1.5px solid #e2ddd0; background:#fff;
+    font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; color:#555;
+  }
+  #cats button.on { background:#222; border-color:#222; color:#fff; }
+  #grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(270px, 1fr)); gap:12px; }
+  .card {
+    background:#fff; border:1px solid #e8e3d6; border-radius:16px; padding:16px;
+    display:flex; flex-direction:column; gap:8px; box-shadow:0 2px 8px rgba(0,0,0,.04);
+  }
+  .card h3 { font-size:16px; font-weight:800; }
+  .badge {
+    display:inline-block; font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:12px;
+    background:#f0ebe0; color:#8a6d3b; width:fit-content;
+  }
+  .card p.desc { font-size:13px; color:#777; line-height:1.55; flex:1; }
+  .row { display:flex; gap:6px; }
+  .row button {
+    flex:1; padding:9px 4px; border-radius:10px; font-size:13.5px; font-weight:800;
+    cursor:pointer; font-family:inherit; border:1.5px solid #e2ddd0; background:#faf8f3; color:#333;
+  }
+  .row button.primary { background:#e8590c; border-color:#e8590c; color:#fff; }
+  .row button.star { flex:0 0 44px; font-size:17px; }
+  .row button.star.on { background:#fff7e6; border-color:#f5b301; }
+  #addBtn {
+    position:fixed; right:18px; bottom:18px; padding:14px 20px; border-radius:30px; border:none;
+    background:#222; color:#fff; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit;
+    box-shadow:0 6px 20px rgba(0,0,0,.25);
+  }
+  #modalWrap {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:20;
+    align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto;
+  }
+  #modalWrap.show { display:flex; }
+  #modal {
+    background:#fff; border-radius:18px; padding:22px; width:100%; max-width:620px;
+    box-shadow:0 12px 40px rgba(0,0,0,.3);
+  }
+  #modal h2 { font-size:19px; font-weight:900; margin-bottom:4px; }
+  #modal .mdesc { font-size:13.5px; color:#888; margin-bottom:14px; }
+  #modal label.lbl { display:block; font-size:13px; font-weight:700; margin:12px 0 5px; color:#555; }
+  #modal input[type=text], #modal textarea, #modal select {
+    width:100%; padding:10px 12px; border:1.5px solid #ddd; border-radius:10px;
+    font-size:14px; font-family:inherit; outline:none; background:#fbfaf7;
+  }
+  #modal input:focus, #modal textarea:focus { border-color:#e8590c; }
+  #modal textarea { min-height:150px; resize:vertical; line-height:1.6; }
+  #preview {
+    background:#1e1e1e; color:#e8e8e8; border-radius:12px; padding:14px; margin-top:14px;
+    font-size:13.5px; line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:320px; overflow-y:auto;
+  }
+  #preview .var { color:#ffd43b; font-weight:700; }
+  .mrow { display:flex; gap:8px; margin-top:16px; }
+  .mrow button {
+    flex:1; padding:12px; border-radius:12px; font-size:14.5px; font-weight:800; cursor:pointer;
+    font-family:inherit; border:1.5px solid #ddd; background:#fff;
+  }
+  .mrow button.primary { background:#e8590c; border-color:#e8590c; color:#fff; }
+  .mrow button.danger { color:#d6336c; border-color:#f3c2d3; }
+  #toast {
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#222; color:#fff;
+    padding:11px 20px; border-radius:24px; font-size:14px; display:none; z-index:50;
+    max-width:90vw; text-align:center; font-weight:700;
+  }
+  #empty { text-align:center; color:#aaa; padding:40px 0; font-size:14px; grid-column:1/-1; }
+  footer { text-align:center; font-size:12px; color:#aaa; margin-top:26px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>📚 프롬프트 갤러리</h1>
+    <p>필요한 프롬프트를 찾아 변수만 채우면 바로 복사</p>
+    <input type="search" id="search" placeholder="🔍 검색 (제목 · 설명 · 본문)">
+  </header>
+  <nav id="cats"></nav>
+  <div id="grid"></div>
+  <footer>프롬프트 갤러리 · 100% 브라우저에서 동작 · 서버 없음</footer>
+</div>
+<button id="addBtn">＋ 내 프롬프트</button>
+<div id="modalWrap"><div id="modal"></div></div>
+<div id="toast"></div>
+<script>
+"use strict";
+/* ============ helpers ============ */
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function parseVars(body){
+  var vars=[], seen={};
+  String(body).replace(/\{\{([^}]+)\}\}/g, function(m, v){
+    v=v.trim(); if(v && !seen[v]){ seen[v]=1; vars.push(v); } return m;
+  });
+  return vars;
+}
+function fillVars(body, vals){
+  return String(body).replace(/\{\{([^}]+)\}\}/g, function(m, v){
+    v=v.trim(); return (vals[v]!==undefined && vals[v]!=="") ? vals[v] : m;
+  });
+}
+
+/* ============ categories ============ */
+var CATS = [
+  {id:"all", name:"전체"},
+  {id:"fav", name:"⭐ 즐겨찾기"},
+  {id:"write", name:"✍️ 글쓰기"},
+  {id:"code", name:"💻 코딩"},
+  {id:"image", name:"🎨 이미지 생성"},
+  {id:"marketing", name:"📣 마케팅"},
+  {id:"study", name:"📚 학습"},
+  {id:"biz", name:"💼 비즈니스"},
+  {id:"life", name:"🏠 일상"},
+  {id:"mine", name:"🗂 내 프롬프트"}
+];
+function catName(id){
+  for(var i=0;i<CATS.length;i++) if(CATS[i].id===id) return CATS[i].name;
+  return id;
+}
+
+/* ============ curated prompts ============ */
+var PROMPTS = [
+/* ---- 글쓰기 ---- */
+{id:"c1", cat:"write", title:"블로그 글 작성",
+ desc:"주제만 주면 도입부부터 마무리까지 완성형 블로그 글",
+ body:`다음 조건으로 블로그 글을 작성해줘.
+- 주제: {{주제}}
+- 독자층: {{독자층}}
+- 분량: {{분량}}
+
+도입부에서 독자의 공감을 이끌고, 본문은 소제목 3~4개로 나누고, 마지막에 핵심 요약과 행동 유도를 넣어줘. 말투는 친근하고 이해하기 쉽게.`},
+{id:"c2", cat:"write", title:"이메일 다듬기",
+ desc:"어색한 이메일을 목적에 맞는 톤으로 다듬기",
+ body:`다음 이메일을 {{톤}} 톤으로 다듬어줘. 핵심 내용은 유지하고 문장을 간결하게 정리해줘. 수정된 부분은 마지막에 간단히 설명해줘.
+
+[원문]
+{{원문}}`},
+{id:"c3", cat:"write", title:"광고 슬로건 10개",
+ desc:"제품의 강점이 드러나는 짧고 기억에 남는 슬로건",
+ body:`{{제품}}의 광고 슬로건을 10개 만들어줘.
+- 타겟: {{타겟}}
+- 분위기: {{분위기}}
+각 슬로건은 15자 이내로, 기억에 남고 {{제품}}의 강점이 드러나게 작성해줘.`},
+{id:"c4", cat:"write", title:"소설 첫 문장",
+ desc:"독자를 사로잡는 강렬한 오프닝 5종",
+ body:`{{장르}} 소설의 첫 문장을 5개 제안해줘. 분위기는 {{분위기}}로, 독자가 다음 문장을 읽고 싶어지도록 강렬하게 시작해줘. 각 문장마다 어떤 효과를 노린 건지 한 줄로 설명해줘.`},
+{id:"c5", cat:"write", title:"자기소개서 첨삭",
+ desc:"두괄식 정리 + 추상적 표현을 구체적 경험으로",
+ body:`{{직무}} 지원용 자기소개서를 첨삭해줘. 두괄식으로 다듬고, 추상적인 표현은 구체적인 경험과 수치로 바꿔줘. 약한 부분은 어떻게 보완하면 좋을지 조언도 해줘.
+
+[원문]
+{{원문}}`},
+/* ---- 코딩 ---- */
+{id:"c6", cat:"code", title:"코드 리뷰",
+ desc:"버그·성능·가독성·보안 4관점 리뷰",
+ body:`다음 {{언어}} 코드를 리뷰해줘. 버그 가능성, 성능 이슈, 가독성, 보안 측면에서 지적하고, 개선된 코드를 함께 보여줘.
+
+\`\`\`{{언어}}
+{{코드}}
+\`\`\``},
+{id:"c7", cat:"code", title:"버그 디버깅",
+ desc:"에러 원인 3가지를 우선순위대로 분석",
+ body:`다음 에러의 원인을 분석하고 해결 방법을 알려줘.
+- 환경: {{환경}}
+- 에러 메시지: {{에러}}
+
+[관련 코드]
+{{코드}}
+
+가능한 원인 3가지를 우선순위대로 제시하고, 각각의 확인 방법을 알려줘.`},
+{id:"c8", cat:"code", title:"정규식 생성",
+ desc:"설명만 하면 정규식 + 패턴 해설 + 테스트 예시",
+ body:`다음 조건에 맞는 정규식을 만들어줘: {{설명}}
+정규식과 함께 각 패턴이 무엇을 의미하는지 설명하고, 테스트할 수 있는 예시 문자열 3개(매칭 2개, 비매칭 1개)도 보여줘.`},
+{id:"c9", cat:"code", title:"SQL 쿼리 작성",
+ desc:"테이블 구조 기준으로 요청에 맞는 쿼리 + 동작 설명",
+ body:`다음 테이블 구조를 기준으로 요청에 맞는 SQL 쿼리를 작성해줘.
+
+[테이블 구조]
+{{테이블}}
+
+[요청]
+{{요청}}
+
+쿼리와 함께 실행 순서대로 어떻게 동작하는지 설명해줘.`},
+{id:"c10", cat:"code", title:"리팩토링 제안",
+ desc:"동작은 유지하고 중복 제거·함수 분리·네이밍 개선",
+ body:`다음 {{언어}} 코드를 리팩토링해줘. 중복 제거, 함수 분리, 네이밍 개선에 집중하고, 동작은 동일하게 유지해줘. 변경 이유를 항목별로 설명해줘.
+
+\`\`\`{{언어}}
+{{코드}}
+\`\`\``},
+/* ---- 이미지 생성 ---- */
+{id:"c11", cat:"image", title:"실사풍 이미지",
+ desc:"사진 같은 고퀄리티 이미지 생성 프롬프트",
+ body:`Photorealistic image, {{주제}}, {{분위기}} mood, {{구도}} composition, natural lighting, ultra detailed, 8k quality. No text, no watermark.`},
+{id:"c12", cat:"image", title:"일러스트",
+ desc:"스타일과 색감을 지정한 일러스트 프롬프트",
+ body:`{{스타일}} style illustration of {{주제}}, {{색감}} color palette, clean composition, high detail, no text.`},
+{id:"c13", cat:"image", title:"로고 컨셉",
+ desc:"미니멀 벡터 스타일 로고 디자인 프롬프트",
+ body:`Minimal logo design for '{{브랜드}}', {{업종}} industry, {{분위기}} feel. Simple vector style, flat design, memorable symbol, no text gradients.`},
+{id:"c14", cat:"image", title:"유튜브 썸네일",
+ desc:"눈에 띄는 고대비 썸네일 프롬프트",
+ body:`YouTube thumbnail design, theme: {{주제}}, bold text '{{문구}}', {{스타일}} style, high contrast, eye-catching, 16:9 composition.`},
+{id:"c15", cat:"image", title:"캐릭터 디자인",
+ desc:"전신 레퍼런스 시트용 캐릭터 프롬프트",
+ body:`Original character design, {{특징}}, {{스타일}} style, full body, character reference sheet, front and side view, clean background.`},
+/* ---- 마케팅 ---- */
+{id:"c16", cat:"marketing", title:"SNS 게시글",
+ desc:"플랫폼별 톤에 맞는 홍보 게시글 + 해시태그",
+ body:`{{플랫폼}}에 올릴 {{제품}} 홍보 게시글을 써줘. 톤은 {{톤}}으로, 첫 줄에서 시선을 끌고, 해시태그 5개를 마지막에 붙여줘.`},
+{id:"c17", cat:"marketing", title:"광고 카피 5개",
+ desc:"심리 트리거를 명시한 광고 카피",
+ body:`{{매체}}용 {{제품}} 광고 카피를 5개 만들어줘. 타겟은 {{타겟}}이고, 각 카피마다 어떤 심리를 자극하는지 괄호 안에 표시해줘.`},
+{id:"c18", cat:"marketing", title:"뉴스레터 작성",
+ desc:"제목 후보부터 마무리까지 뉴스레터 구성",
+ body:`{{독자}}을 위한 {{주제}} 뉴스레터를 작성해줘. 제목 3개 후보, 도입부, 핵심 소식 3가지, 마무리 멘트 순서로 구성해줘.`},
+{id:"c19", cat:"marketing", title:"SEO 블로그 글",
+ desc:"키워드 최적화로 검색 상위 노출 노리기",
+ body:`'{{키워드}}' 키워드로 검색 상위 노출을 노리는 {{주제}} 글을 작성해줘. 키워드를 제목·소제목·본문에 자연스럽게 배치하고, 1500자 이상으로 작성해줘.`},
+{id:"c20", cat:"marketing", title:"이벤트 기획",
+ desc:"컨셉부터 성공 지표까지 이벤트 기획안",
+ body:`목적이 {{목적}}인 이벤트를 기획해줘. 타겟: {{타겟}}, 예산: {{예산}}. 이벤트 컨셉, 프로그램 구성, 홍보 채널, 성공 지표를 포함해줘.`},
+/* ---- 학습 ---- */
+{id:"c21", cat:"study", title:"개념 쉽게 설명",
+ desc:"비유 2개 + 3줄 요약으로 어려운 개념 정복",
+ body:`'{{개념}}'을 {{수준}} 수준에 맞춰 쉽게 설명해줘. 일상적인 비유를 2개 이상 쓰고, 핵심만 3줄로 요약해줘.`},
+{id:"c22", cat:"study", title:"시험 문제 출제",
+ desc:"객관식 6 + 주관식 4, 정답·해설 포함",
+ body:`{{과목}} {{범위}} 범위에서 {{난이도}} 난이도의 문제 10개를 출제해줘. 객관식 6개, 주관식 4개로 구성하고, 맨 마지막에 정답과 해설을 모아서 보여줘.`},
+{id:"c23", cat:"study", title:"영어 회화 롤플레이",
+ desc:"상황별 표현 학습 + 실전 롤플레이",
+ body:`{{상황}} 상황의 영어 회화 연습을 도와줘. 내 수준은 {{수준}}이야. 먼저 상황 설명과 유용한 표현 5개를 알려주고, 그다음 롤플레이를 시작해줘.`},
+{id:"c24", cat:"study", title:"긴 글 요약",
+ desc:"핵심 5줄 + 수치·고유명사 유지 + 한 줄 결론",
+ body:`다음 글을 핵심만 5줄로 요약해줘. 중요한 수치나 고유명사는 빠뜨리지 말고, 마지막에 한 줄 결론을 붙여줘.
+
+{{텍스트}}`},
+{id:"c25", cat:"study", title:"학습 계획표",
+ desc:"주차별 계획 + 주간 체크리스트",
+ body:`목표는 {{목표}}, 기간은 {{기간}}, 하루 {{시간}} 공부할 수 있어. 주차별 학습 계획을 세워주고, 매주 점검할 체크리스트도 만들어줘.`},
+/* ---- 비즈니스 ---- */
+{id:"c26", cat:"biz", title:"회의록 정리",
+ desc:"안건·결정·액션아이템으로 깔끔하게 정리",
+ body:`다음 회의 내용을 회의록으로 정리해줘. 일시·참석자(알 수 없으면 비워둬), 안건별 논의 내용, 결정 사항, 액션 아이템(담당·기한) 순서로 작성해줘.
+
+{{내용}}`},
+{id:"c27", cat:"biz", title:"사업계획서 목차",
+ desc:"투자자 관점의 목차 + 항목별 핵심 내용",
+ body:`{{시장}} 시장의 {{아이템}} 사업계획서 목차를 만들어줘. 투자자가 보고 싶어하는 순서로 구성하고, 각 항목에 들어갈 핵심 내용을 한 줄로 설명해줘.`},
+{id:"c28", cat:"biz", title:"협상 이메일",
+ desc:"단호하지만 관계를 해치지 않는 협상 메일",
+ body:`{{상황}} 상황에서 {{목표}}를 달성하기 위한 협상 이메일을 써줘. 단호하지만 관계를 해치지 않는 톤으로, 대안을 1개 포함해줘.`},
+{id:"c29", cat:"biz", title:"SWOT 분석",
+ desc:"항목별 3개씩 + SO/WO/ST/WT 전략 제안",
+ body:`{{상황}}인 상황에서 {{사업}}의 SWOT 분석을 해줘. 각 항목당 3개씩, 그리고 SO/WO/ST/WT 전략을 하나씩 제안해줘.`},
+{id:"c30", cat:"biz", title:"고객 응대 답변",
+ desc:"사과→원인→해결책→재발방지 구조",
+ body:`{{상황}}인 고객에게 {{톤}} 톤으로 답변을 작성해줘. 사과·원인 설명·해결책·재발 방지 순서로 구성해줘.`},
+/* ---- 일상 ---- */
+{id:"c31", cat:"life", title:"요리 레시피",
+ desc:"있는 재료로 시간 안에 만드는 단계별 레시피",
+ body:`{{재료}}로 {{인분}}이 {{시간}} 안에 만들 수 있는 요리를 추천해줘. 재료 손질부터 조리 순서까지 단계별로 알려줘.`},
+{id:"c32", cat:"life", title:"여행 계획",
+ desc:"일자별 일정 + 맛집·명소 + 예상 경비",
+ body:`{{목적지}} {{기간}} 여행 계획을 세워줘. 예산은 {{예산}}이야. 일자별 일정, 추천 맛집·명소, 예상 경비를 포함해줘.`},
+{id:"c33", cat:"life", title:"운동 루틴",
+ desc:"주 3회 40분, 횟수·세트·주의점 포함",
+ body:`목표는 {{목표}}, 수준은 {{수준}}, 장소는 {{장소}}야. 주 3회 40분 운동 루틴을 만들어줘. 각 운동의 횟수·세트와 주의할 점도 알려줘.`},
+{id:"c34", cat:"life", title:"선물 추천",
+ desc:"대상·예산·관심사 맞춤 선물 5선",
+ body:`{{관심사}}에 관심 있는 {{대상}}에게 줄 {{예산}}대 선물을 5개 추천해줘. 각각 왜 어울리는지 이유도 함께.`},
+{id:"c35", cat:"life", title:"집 정리 계획",
+ desc:"버릴 것·둘 곳·순서 + 유지 팁",
+ body:`{{공간}}을 {{시간}} 안에 정리하는 계획을 세워줘. 버릴 것·둘 곳·정리 순서대로 알려주고, 유지하는 팁도 3개 줘.`}
+];
+
+/* ============ storage ============ */
+function loadJSON(key, fb){
+  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; }
+  catch(e){ return fb; }
+}
+function saveJSON(key, val){
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+}
+var userPrompts = loadJSON("pg_user", []);
+var favorites = loadJSON("pg_fav", []);
+
+/* ============ state ============ */
+var state = { cat:"all", q:"" };
+function allPrompts(){
+  return PROMPTS.concat(userPrompts);
+}
+function findPrompt(id){
+  var all = allPrompts();
+  for(var i=0;i<all.length;i++) if(all[i].id===id) return all[i];
+  return null;
+}
+function isFav(id){ return favorites.indexOf(id)>=0; }
+
+/* ============ toast ============ */
+var toastTimer=null;
+function toast(msg){
+  var t=document.getElementById("toast");
+  t.textContent=msg; t.style.display="block";
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ t.style.display="none"; },2200);
+}
+
+/* ============ clipboard ============ */
+function copyText(text, done){
+  function ok(){ toast("📋 복사됐어요!"); if(done)done(); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(ok, function(){ fallback(); });
+  } else fallback();
+  function fallback(){
+    var ta=document.createElement("textarea");
+    ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); ok(); }catch(e){ toast("복사에 실패했어요"); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ============ render: categories ============ */
+function renderCats(){
+  var nav=document.getElementById("cats");
+  nav.innerHTML="";
+  CATS.forEach(function(c){
+    var b=document.createElement("button");
+    b.textContent=c.name;
+    if(c.id===state.cat) b.className="on";
+    b.addEventListener("click", function(){ state.cat=c.id; renderCats(); renderGrid(); });
+    nav.appendChild(b);
+  });
+}
+
+/* ============ render: grid ============ */
+function filtered(){
+  var q=state.q.trim().toLowerCase();
+  var all=allPrompts();
+  return all.filter(function(p){
+    if(state.cat==="fav" && !isFav(p.id)) return false;
+    if(state.cat==="mine" && p.id.charAt(0)!=="u") return false;
+    if(state.cat!=="all" && state.cat!=="fav" && state.cat!=="mine" && p.cat!==state.cat) return false;
+    if(q){
+      var hay=(p.title+" "+p.desc+" "+p.body).toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+}
+function renderGrid(){
+  var grid=document.getElementById("grid");
+  var list=filtered();
+  grid.innerHTML="";
+  if(!list.length){
+    var d=document.createElement("div");
+    d.id="empty";
+    d.textContent = state.cat==="fav" ? "⭐ 즐겨찾기한 프롬프트가 없어요." : "검색 결과가 없어요.";
+    grid.appendChild(d); return;
+  }
+  list.forEach(function(p){
+    var card=document.createElement("div");
+    card.className="card";
+    var vars=parseVars(p.body);
+    card.innerHTML =
+      '<span class="badge">'+esc(catName(p.cat))+'</span>'+
+      '<h3>'+esc(p.title)+'</h3>'+
+      '<p class="desc">'+esc(p.desc)+'</p>'+
+      '<div class="row"></div>';
+    var row=card.querySelector(".row");
+    var useB=document.createElement("button");
+    useB.className="primary"; useB.textContent="사용하기";
+    useB.addEventListener("click", function(){ openUse(p.id); });
+    var copyB=document.createElement("button");
+    copyB.textContent="복사";
+    copyB.addEventListener("click", function(){ copyText(p.body); });
+    var starB=document.createElement("button");
+    starB.className="star"+(isFav(p.id)?" on":"");
+    starB.textContent=isFav(p.id)?"★":"☆";
+    starB.title="즐겨찾기";
+    starB.addEventListener("click", function(){
+      toggleFav(p.id);
+      starB.textContent=isFav(p.id)?"★":"☆";
+      starB.classList.toggle("on", isFav(p.id));
+      if(state.cat==="fav") renderGrid();
+    });
+    row.appendChild(useB); row.appendChild(copyB); row.appendChild(starB);
+    if(p.id.charAt(0)==="u"){
+      var editB=document.createElement("button");
+      editB.textContent="✏️";
+      editB.title="수정";
+      editB.style.flex="0 0 44px";
+      editB.addEventListener("click", function(){ openEdit(p.id); });
+      row.appendChild(editB);
+    }
+    grid.appendChild(card);
+  });
+}
+function toggleFav(id){
+  var i=favorites.indexOf(id);
+  if(i>=0){ favorites.splice(i,1); toast("즐겨찾기 해제"); }
+  else { favorites.push(id); toast("⭐ 즐겨찾기에 추가"); }
+  saveJSON("pg_fav", favorites);
+}
+
+/* ============ modal: use ============ */
+var modalWrap, modal;
+function openModal(html){
+  modal.innerHTML=html;
+  modalWrap.classList.add("show");
+}
+function closeModal(){ modalWrap.classList.remove("show"); }
+function openUse(id){
+  var p=findPrompt(id); if(!p) return;
+  var vars=parseVars(p.body);
+  var html='<h2>'+esc(p.title)+'</h2><div class="mdesc">'+esc(p.desc)+'</div>';
+  if(vars.length){
+    html+='<div id="varInputs">';
+    vars.forEach(function(v,i){
+      html+='<label class="lbl">'+esc(v)+'</label><input type="text" data-var="'+esc(v)+'" placeholder="'+esc(v)+' 입력">';
+    });
+    html+='</div>';
+  } else {
+    html+='<div class="mdesc">변수가 없는 프롬프트예요. 바로 복사해서 쓰세요.</div>';
+  }
+  html+='<label class="lbl">미리보기</label><div id="preview"></div>';
+  html+='<div class="mrow"><button id="mCopy" class="primary">📋 복사하기</button>'+
+        '<button id="mFav">'+(isFav(p.id)?"★ 즐겨찾기 해제":"☆ 즐겨찾기")+'</button>'+
+        '<button id="mClose">닫기</button></div>';
+  openModal(html);
+  var vals={};
+  function refresh(){
+    var filled=fillVars(p.body, vals);
+    var shown=esc(filled).replace(/\{\{([^}]+)\}\}/g, '<span class="var">{{$1}}</span>');
+    document.getElementById("preview").innerHTML=shown;
+    return filled;
+  }
+  var inputs=modal.querySelectorAll("[data-var]");
+  for(var i=0;i<inputs.length;i++){
+    (function(inp){
+      inp.addEventListener("input", function(){ vals[inp.getAttribute("data-var")]=inp.value; refresh(); });
+    })(inputs[i]);
+  }
+  refresh();
+  document.getElementById("mCopy").addEventListener("click", function(){
+    copyText(refresh());
+  });
+  document.getElementById("mFav").addEventListener("click", function(){
+    toggleFav(p.id);
+    document.getElementById("mFav").textContent=isFav(p.id)?"★ 즐겨찾기 해제":"☆ 즐겨찾기";
+    renderGrid();
+  });
+  document.getElementById("mClose").addEventListener("click", closeModal);
+}
+
+/* ============ modal: add / edit ============ */
+function openEdit(id){
+  var p=id?findPrompt(id):null;
+  var isNew=!p;
+  var catOpts=CATS.filter(function(c){ return ["write","code","image","marketing","study","biz","life"].indexOf(c.id)>=0; })
+    .map(function(c){ return '<option value="'+c.id+'"'+(p&&p.cat===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("");
+  openModal(
+    '<h2>'+(isNew?"＋ 내 프롬프트 추가":"✏️ 프롬프트 수정")+'</h2>'+
+    '<div class="mdesc">본문에 {{변수명}}을 넣으면 사용 화면에서 입력 칸이 자동 생성돼요.</div>'+
+    '<label class="lbl">제목</label><input type="text" id="fTitle" value="'+esc(p?p.title:"")+'" placeholder="예: 회의 안건 정리">'+
+    '<label class="lbl">카테고리</label><select id="fCat">'+catOpts+'</select>'+
+    '<label class="lbl">설명</label><input type="text" id="fDesc" value="'+esc(p?p.desc:"")+'" placeholder="한 줄 설명">'+
+    '<label class="lbl">본문</label><textarea id="fBody" placeholder="프롬프트 본문… {{변수}} 사용 가능">'+esc(p?p.body:"")+'</textarea>'+
+    '<div class="mrow"><button id="fSave" class="primary">💾 저장</button>'+
+    (isNew?"":'<button id="fDel" class="danger">🗑 삭제</button>')+
+    '<button id="fClose">취소</button></div>'
+  );
+  document.getElementById("fSave").addEventListener("click", function(){
+    var title=document.getElementById("fTitle").value.trim();
+    var body=document.getElementById("fBody").value.trim();
+    if(!title){ toast("제목을 입력해 주세요"); return; }
+    if(!body){ toast("본문을 입력해 주세요"); return; }
+    var data={
+      id: isNew ? "u"+Date.now() : p.id,
+      cat: document.getElementById("fCat").value,
+      title: title,
+      desc: document.getElementById("fDesc").value.trim() || "내가 만든 프롬프트",
+      body: body
+    };
+    if(isNew){ userPrompts.push(data); }
+    else {
+      for(var i=0;i<userPrompts.length;i++) if(userPrompts[i].id===p.id) userPrompts[i]=data;
+    }
+    saveJSON("pg_user", userPrompts);
+    closeModal(); renderGrid();
+    toast(isNew?"✅ 추가됐어요":"✅ 수정됐어요");
+  });
+  var delB=document.getElementById("fDel");
+  if(delB) delB.addEventListener("click", function(){
+    if(!confirm("정말 삭제할까요?")) return;
+    userPrompts=userPrompts.filter(function(x){ return x.id!==p.id; });
+    var fi=favorites.indexOf(p.id); if(fi>=0) favorites.splice(fi,1);
+    saveJSON("pg_user", userPrompts); saveJSON("pg_fav", favorites);
+    closeModal(); renderGrid(); toast("🗑 삭제됐어요");
+  });
+  document.getElementById("fClose").addEventListener("click", closeModal);
+}
+
+/* ============ init ============ */
+function init(){
+  modalWrap=document.getElementById("modalWrap");
+  modal=document.getElementById("modal");
+  renderCats(); renderGrid();
+  document.getElementById("search").addEventListener("input", function(e){
+    state.q=e.target.value; renderGrid();
+  });
+  document.getElementById("addBtn").addEventListener("click", function(){ openEdit(null); });
+  modalWrap.addEventListener("click", function(e){ if(e.target===modalWrap) closeModal(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeModal(); });
+}
+if(typeof document!=="undefined" && document.getElementById){
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+}
+
+/* ============ test hooks (no effect on app) ============ */
+if(typeof globalThis!=="undefined"){
+  globalThis.__pgTest={ PROMPTS:PROMPTS, CATS:CATS, parseVars:parseVars, fillVars:fillVars, esc:esc, catName:catName };
+}
+</script>
+</body>
+</html>
